@@ -17,12 +17,97 @@ const syrups = [
   { label: 'Ваниль', price: 30 },
   { label: 'Карамель', price: 30 },
 ]
+type Favorite = {
+  sizeIndex: number
+  milkIndex: number
+  syrupIndex: number
+}
+
+const FAVORITES_KEY = 'starhit-cafe-favorites'
+
+function getFavoriteId(favorite: Favorite) {
+  return `${favorite.sizeIndex}-${favorite.milkIndex}-${favorite.syrupIndex}`
+}
+
+function loadFavorites(): Favorite[] {
+  try {
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(FAVORITES_KEY) ?? '[]',
+    )
+
+    if (!Array.isArray(stored)) return []
+
+    return stored.filter((item): item is Favorite => {
+      if (typeof item !== 'object' || item === null) return false
+
+      return (
+        Number.isInteger(item.sizeIndex) &&
+        item.sizeIndex >= 0 &&
+        item.sizeIndex < sizes.length &&
+        Number.isInteger(item.milkIndex) &&
+        item.milkIndex >= 0 &&
+        item.milkIndex < milks.length &&
+        Number.isInteger(item.syrupIndex) &&
+        item.syrupIndex >= 0 &&
+        item.syrupIndex < syrups.length
+      )
+    })
+  } catch {
+    return []
+  }
+}
 
 function App() {
   const [sizeIndex, setSizeIndex] = useState(1)
   const [milkIndex, setMilkIndex] = useState(0)
   const [syrupIndex, setSyrupIndex] = useState(0)
+  const [favorites, setFavorites] = useState<Favorite[]>(loadFavorites)
+  const [storageError, setStorageError] = useState('')
 
+  function updateFavorites(nextFavorites: Favorite[]) {
+    setFavorites(nextFavorites)
+
+    try {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(nextFavorites))
+      setStorageError('')
+    } catch {
+      setStorageError(
+        'Не удалось сохранить избранное в браузере. После обновления страницы изменения могут потеряться.',
+      )
+    }
+  }
+
+  const currentFavorite: Favorite = {
+    sizeIndex,
+    milkIndex,
+    syrupIndex,
+  }
+
+  const isSaved = favorites.some(
+    (favorite) =>
+      getFavoriteId(favorite) === getFavoriteId(currentFavorite),
+  )
+
+  function saveFavorite() {
+    if (isSaved) return
+
+    updateFavorites([...favorites, currentFavorite])
+  }
+
+  function applyFavorite(favorite: Favorite) {
+    setSizeIndex(favorite.sizeIndex)
+    setMilkIndex(favorite.milkIndex)
+    setSyrupIndex(favorite.syrupIndex)
+  }
+
+  function removeFavorite(favorite: Favorite) {
+    updateFavorites(
+      favorites.filter(
+        (item) => getFavoriteId(item) !== getFavoriteId(favorite),
+      ),
+    )
+  }
+  
   const selectedSize = sizes[sizeIndex]
   const selectedMilk = milks[milkIndex]
   const selectedSyrup = syrups[syrupIndex]
@@ -137,8 +222,76 @@ function App() {
               <span className="text-3xl font-bold">{totalPrice} ₽</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={saveFavorite}
+            disabled={isSaved}
+            className="mt-6 w-full cursor-pointer rounded-2xl bg-[#49362B] px-4 py-4 font-semibold text-white transition-colors hover:bg-[#624A3B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#49362B] disabled:cursor-default disabled:bg-[#CDE8DD] disabled:text-[#49362B]"
+          >
+            {isSaved ? '✓ Уже в избранном' : '♡ Сохранить в избранное'}
+          </button>
         </article>
+        <section className="mt-8" aria-labelledby="favorites-heading">
+          <h2 id="favorites-heading" className="text-2xl font-bold">
+            Избранное · {favorites.length}
+          </h2>
 
+          {storageError && (
+            <p role="alert" className="mt-3 text-sm text-[#9B3028]">
+              {storageError}
+            </p>
+          )}
+
+          {favorites.length === 0 ? (
+            <p className="mt-3 text-sm leading-relaxed text-[#756457]">
+              Здесь появятся твои любимые комбинации. Настрой напиток
+              и нажми «Сохранить в избранное».
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {favorites.map((favorite) => {
+                const size = sizes[favorite.sizeIndex]
+                const milk = milks[favorite.milkIndex]
+                const syrup = syrups[favorite.syrupIndex]
+                const price = size.price + milk.price + syrup.price
+
+                return (
+                  <li
+                    key={getFavoriteId(favorite)}
+                    className="rounded-2xl bg-white p-5 shadow-sm"
+                  >
+                    <h3 className="font-bold">Капучино · {size.label}</h3>
+
+                    <p className="mt-1 text-sm text-[#756457]">
+                      Молоко: {milk.label} · {syrup.label}
+                    </p>
+
+                    <p className="mt-3 text-lg font-bold">{price} ₽</p>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => applyFavorite(favorite)}
+                        className="min-h-11 cursor-pointer rounded-xl bg-[#CDE8DD] px-4 py-2 text-sm font-semibold hover:bg-[#B9DCCD] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#49362B]"
+                      >
+                        Выбрать
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removeFavorite(favorite)}
+                        aria-label={`Удалить из избранного: капучино, ${size.label}, ${milk.label}, ${syrup.label}`}
+                        className="min-h-11 cursor-pointer rounded-xl px-4 py-2 text-sm text-[#756457] hover:bg-[#F7F2EA] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#49362B]"
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
         <p className="mt-5 text-center text-xs text-[#756457]">
           Учебный проект · Напиток и цены для демонстрации
         </p>
