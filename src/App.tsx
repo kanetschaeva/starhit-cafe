@@ -1,5 +1,5 @@
 import { useState } from 'react'
-
+import MenuCatalog from './components/MenuCatalog'
 const sizes = [
   { label: '250 мл', price: 210 },
   { label: '300 мл', price: 250 },
@@ -213,7 +213,19 @@ function App() {
             {storageError}
           </p>
         )}
+        {screen === 'menu' && (
+          <div className="mb-10">
+            <MenuCatalog />
 
+            <h2 className="mt-10 text-xl font-bold">
+              Ранний конструктор капучино
+            </h2>
+            <p className="mt-2 text-sm text-[#756457]">
+              Пока отдельная демонстрация со старыми тестовыми ценами.
+              На следующем шаге подключим её к каталогу.
+            </p>
+          </div>
+        )}
         {screen === 'menu' && (
           <article className="rounded-3xl bg-white p-6 shadow-sm">
             <div className="flex h-40 items-center justify-center rounded-2xl bg-[#CDE8DD]">
