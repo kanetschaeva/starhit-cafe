@@ -6,139 +6,130 @@ import {
   syrups,
 } from '../data/catalog'
 import type { Product } from '../data/catalog'
+import {
+  configId,
+  createConfig,
+  describeConfig,
+  getSyrupPrice,
+  isCream,
+  MAX_SYRUPS,
+  supportsMilk,
+} from '../data/drinkConfig'
+import type { DrinkConfig } from '../data/drinkConfig'
 
-const MAX_SYRUPS = 2
-
-const syrupPricesByVolume: Record<string, number> = {
-  '200': 14,
-  '300': 19,
-  '400': 19,
-  '600': 19,
+type Props = {
+  product: Product
+  initialConfig?: DrinkConfig
+  favorites: DrinkConfig[]
+  onSave: (config: DrinkConfig) => void
 }
 
-const controlClass =
+const selectClass =
   'mt-2 min-h-12 w-full rounded-xl border border-[#DCE7E2] bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-[#007F78]'
 
-function isWhippedCream(id: string) {
-  return id === 'whipped-cream' || id.startsWith('whipped-cream-')
-}
+const optionClass =
+  'flex min-h-12 items-center gap-3 rounded-xl border border-[#DCE7E2] px-3 py-3 text-sm'
 
 export default function ProductOptions({
   product,
-}: {
-  product: Product
-}) {
-  const [variantId, setVariantId] = useState(product.variants[0].id)
-  const [milkId, setMilkId] = useState('')
-  const [syrupIds, setSyrupIds] = useState<string[]>([])
-  const [extraIds, setExtraIds] = useState<string[]>([])
-  const [creamId, setCreamId] = useState('')
+  initialConfig,
+  favorites,
+  onSave,
+}: Props) {
+  const [config, setConfig] = useState<DrinkConfig>(
+    () => initialConfig ?? createConfig(product),
+  )
 
-  const selectedVariant =
-    product.variants.find((variant) => variant.id === variantId) ??
-    product.variants[0]
+  const details = describeConfig(config)
+
+  if (!details) return <p>Эта позиция больше недоступна.</p>
 
   const isClassic = product.categoryId === 'classic'
-
-  const supportsMilk = [
-    'cappuccino',
-    'latte',
-    'flat-white',
-  ].includes(product.id)
-
+  const hasMilk = supportsMilk(product)
   const milkAvailable =
-    supportsMilk &&
-    alternativeMilkVolumeIds.includes(selectedVariant.id)
+    hasMilk && alternativeMilkVolumeIds.includes(config.variantId)
+  const syrupPrice = getSyrupPrice(config.variantId)
+  const creamOptions = drinkExtras.filter((item) => isCream(item.id))
+  const otherExtras = drinkExtras.filter((item) => !isCream(item.id))
+  const selectedCreamId =
+    config.extraIds.find((id) => isCream(id)) ?? ''
 
-  const selectedMilk = milkAvailable
-    ? alternativeMilks.find((milk) => milk.id === milkId)
-    : undefined
-
-  const syrupUnitPrice = syrupPricesByVolume[selectedVariant.id]
-  const syrupsAvailable = isClassic && syrupUnitPrice !== undefined
-
-  const selectedSyrups = syrupsAvailable
-    ? syrups.filter((syrup) => syrupIds.includes(syrup.id))
-    : []
-
-  const creamOptions = drinkExtras.filter((extra) =>
-    isWhippedCream(extra.id),
+  const isSaved = favorites.some(
+    (item) => configId(item) === configId(config),
   )
 
-  const otherExtras = drinkExtras.filter(
-    (extra) => !isWhippedCream(extra.id),
-  )
-
-  const selectedCream = isClassic
-    ? creamOptions.find((extra) => extra.id === creamId)
-    : undefined
-
-  const selectedOtherExtras = isClassic
-    ? otherExtras.filter((extra) => extraIds.includes(extra.id))
-    : []
-
-  const selectedExtras = [
-    ...selectedOtherExtras,
-    ...(selectedCream ? [selectedCream] : []),
-  ]
-
-  const milkPrice = selectedMilk?.price ?? 0
-
-  const syrupsPrice =
-    selectedSyrups.length * (syrupUnitPrice ?? 0)
-
-  const extrasPrice = selectedExtras.reduce(
-    (total, extra) => total + extra.price,
-    0,
-  )
-
-  const totalPrice =
-    selectedVariant.price + milkPrice + syrupsPrice + extrasPrice
-
-  const summary = [
-    product.name,
-    selectedVariant.label,
-    ...(supportsMilk
-      ? [`Молоко: ${selectedMilk?.name ?? 'Обычное'}`]
-      : []),
-    ...selectedSyrups.map((syrup) => `Сироп: ${syrup.name}`),
-    ...selectedExtras.map((extra) => extra.name),
-  ].join(' · ')
-
-  function changeVariant(nextId: string) {
-    setVariantId(nextId)
-
-    if (!alternativeMilkVolumeIds.includes(nextId)) {
-      setMilkId('')
-    }
-
-    if (syrupPricesByVolume[nextId] === undefined) {
-      setSyrupIds([])
-    }
+  function changeVariant(variantId: string) {
+    setConfig((previous) => ({
+      ...previous,
+      variantId,
+      milkId: alternativeMilkVolumeIds.includes(variantId)
+        ? previous.milkId
+        : '',
+      syrupIds:
+        getSyrupPrice(variantId) !== undefined ? previous.syrupIds : [],
+    }))
   }
 
   function toggleSyrup(id: string) {
-    setSyrupIds((previous) => {
-      if (previous.includes(id)) {
-        return previous.filter((item) => item !== id)
+    setConfig((previous) => {
+      if (previous.syrupIds.includes(id)) {
+        return {
+          ...previous,
+          syrupIds: previous.syrupIds.filter((item) => item !== id),
+        }
       }
 
-      if (previous.length >= MAX_SYRUPS) return previous
+      if (previous.syrupIds.length >= MAX_SYRUPS) return previous
 
-      return [...previous, id]
+      return {
+        ...previous,
+        syrupIds: [...previous.syrupIds, id],
+      }
     })
   }
 
   function toggleExtra(id: string) {
-    setExtraIds((previous) =>
-      previous.includes(id)
-        ? previous.filter((item) => item !== id)
-        : [...previous, id],
-    )
+    setConfig((previous) => ({
+      ...previous,
+      extraIds: previous.extraIds.includes(id)
+        ? previous.extraIds.filter((item) => item !== id)
+        : [...previous.extraIds, id],
+    }))
+  }
+
+  function changeCream(id: string) {
+    setConfig((previous) => ({
+      ...previous,
+      extraIds: [
+        ...previous.extraIds.filter((item) => !isCream(item)),
+        ...(id ? [id] : []),
+      ],
+    }))
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-3">
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="mb-6"
+      >
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <strong className="text-3xl text-[#007F78]">
+            {details.variant.price} ₽
+          </strong>
+          <span className="text-sm text-[#62736E]">
+            {details.variant.label}
+          </span>
+        </div>
+
+        {isClassic && (
+          <p className="mt-1 text-xs text-[#62736E]">
+            Базовая цена · добавки рассчитываются отдельно
+          </p>
+        )}
+      </div>
+
       <fieldset>
         <legend className="mb-3 font-semibold">
           {product.variants.length > 1 ? 'Выбери объём' : 'Порция'}
@@ -149,12 +140,12 @@ export default function ProductOptions({
             <button
               key={variant.id}
               type="button"
-              aria-pressed={variant.id === selectedVariant.id}
+              aria-pressed={variant.id === config.variantId}
               onClick={() => changeVariant(variant.id)}
-              className={`min-h-12 cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007F78] ${
-                variant.id === selectedVariant.id
+              className={`min-h-12 cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[#007F78] ${
+                variant.id === config.variantId
                   ? 'border-[#007F78] bg-[#007F78] text-white'
-                  : 'border-[#DCE7E2] hover:bg-[#E0F2EC]'
+                  : 'border-[#DCE7E2] bg-white hover:bg-[#E0F2EC]'
               }`}
             >
               {variant.label}
@@ -163,7 +154,7 @@ export default function ProductOptions({
         </div>
       </fieldset>
 
-      {supportsMilk && (
+      {hasMilk && (
         <div className="mt-6">
           <label htmlFor="product-milk" className="font-semibold">
             Молоко
@@ -171,16 +162,15 @@ export default function ProductOptions({
 
           <select
             id="product-milk"
-            value={milkId}
+            value={config.milkId}
             disabled={!milkAvailable}
-            onChange={(event) => setMilkId(event.target.value)}
-            aria-describedby={
-              !milkAvailable ? 'milk-availability' : undefined
-            }
-            className={`${controlClass} disabled:bg-[#F4F8F5] disabled:text-[#62736E]`}
+            onChange={(event) => {
+              const milkId = event.target.value
+              setConfig((previous) => ({ ...previous, milkId }))
+            }}
+            className={`${selectClass} disabled:bg-[#F4F8F5]`}
           >
             <option value="">Обычное · без доплаты</option>
-
             {alternativeMilks.map((milk) => (
               <option key={milk.id} value={milk.id}>
                 {milk.name} · +{milk.price} ₽
@@ -189,183 +179,116 @@ export default function ProductOptions({
           </select>
 
           {!milkAvailable && (
-            <p
-              id="milk-availability"
-              className="mt-2 text-xs leading-relaxed text-[#62736E]"
-            >
+            <p className="mt-2 text-xs text-[#62736E]">
               В прототипе замена молока доступна для 200 и 300 мл.
-              Условия для больших объёмов пока уточняются.
             </p>
           )}
         </div>
       )}
 
+      {isClassic && syrupPrice !== undefined && (
+        <fieldset className="mt-6">
+          <legend className="font-semibold">
+            Сиропы · {config.syrupIds.length}/{MAX_SYRUPS}
+          </legend>
+
+          <p id="syrup-limit" className="mt-2 text-sm text-[#62736E]">
+            До двух разных вкусов. Каждый вкус — отдельная порция
+            за {syrupPrice} ₽.
+          </p>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {syrups.map((syrup) => {
+              const checked = config.syrupIds.includes(syrup.id)
+              const disabled =
+                !checked && config.syrupIds.length >= MAX_SYRUPS
+
+              return (
+                <label
+                  key={syrup.id}
+                  className={`${optionClass} ${
+                    checked
+                      ? 'border-[#007F78] bg-[#E0F2EC]'
+                      : 'bg-white'
+                  } ${
+                    disabled
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    aria-describedby="syrup-limit"
+                    onChange={() => toggleSyrup(syrup.id)}
+                    className="h-5 w-5 shrink-0 accent-[#007F78]"
+                  />
+                  <span className="flex-1">{syrup.name}</span>
+                  <span className="shrink-0">+{syrupPrice} ₽</span>
+                </label>
+              )
+            })}
+          </div>
+
+          <p role="status" className="mt-2 text-sm text-[#62736E]">
+            {config.syrupIds.length === MAX_SYRUPS
+              ? 'Для другого вкуса сначала сними одну отметку.'
+              : `Можно добавить сиропов: ${
+                  MAX_SYRUPS - config.syrupIds.length
+                }.`}
+          </p>
+        </fieldset>
+      )}
+
       {isClassic && (
         <>
-          {syrupsAvailable && (
-            <fieldset className="mt-6">
-              <legend className="font-semibold">
-                Сиропы · {syrupIds.length}/{MAX_SYRUPS}
-              </legend>
-
-              <p
-                id="syrup-limit"
-                className="mt-2 text-sm leading-relaxed text-[#62736E]"
-              >
-                Выбери до двух разных вкусов. Каждый вкус — отдельная
-                порция за {syrupUnitPrice} ₽ для объёма{' '}
-                {selectedVariant.label}.
-              </p>
-
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {syrups.map((syrup) => {
-                  const checked = syrupIds.includes(syrup.id)
-                  const disabled =
-                    !checked && syrupIds.length >= MAX_SYRUPS
-
-                  return (
-                    <label
-                      key={syrup.id}
-                      className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-3 text-sm ${
-                        checked
-                          ? 'border-[#007F78] bg-[#E0F2EC]'
-                          : 'border-[#DCE7E2] bg-white'
-                      } ${
-                        disabled
-                          ? 'cursor-not-allowed opacity-50'
-                          : 'cursor-pointer'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={disabled}
-                        aria-describedby="syrup-limit"
-                        onChange={() => toggleSyrup(syrup.id)}
-                        className="h-5 w-5 shrink-0 accent-[#007F78]"
-                      />
-
-                      <span className="flex-1">{syrup.name}</span>
-
-                      <span className="shrink-0 text-[#007F78]">
-                        +{syrupUnitPrice} ₽
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-
-              <p
-                role="status"
-                className="mt-2 text-sm leading-relaxed text-[#62736E]"
-              >
-                {syrupIds.length === MAX_SYRUPS
-                  ? 'Выбрано два вкуса. Чтобы выбрать другой, сними одну отметку.'
-                  : `Можно добавить сиропов: ${MAX_SYRUPS - syrupIds.length}.`}
-              </p>
-            </fieldset>
-          )}
-
           <fieldset className="mt-6">
             <legend className="font-semibold">Добавки</legend>
 
             <div className="mt-3 space-y-2">
-              {otherExtras.map((extra) => {
-                const checked = extraIds.includes(extra.id)
-
-                return (
-                  <label
-                    key={extra.id}
-                    className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm ${
-                      checked
-                        ? 'border-[#007F78] bg-[#E0F2EC]'
-                        : 'border-[#DCE7E2] bg-white'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleExtra(extra.id)}
-                      className="h-5 w-5 shrink-0 accent-[#007F78]"
-                    />
-
-                    <span className="flex-1">{extra.name}</span>
-
-                    <span className="shrink-0 text-[#007F78]">
-                      +{extra.price} ₽
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-
-            <p className="mt-2 text-xs leading-relaxed text-[#62736E]">
-              Каждую добавку можно выбрать один раз.
-            </p>
-          </fieldset>
-
-          {creamOptions.length > 0 && (
-            <fieldset className="mt-6">
-              <legend className="font-semibold">
-                Взбитые сливки
-              </legend>
-
-              <p className="mt-2 text-sm text-[#62736E]">
-                Выбери один вариант.
-              </p>
-
-              <div className="mt-3 space-y-2">
+              {otherExtras.map((extra) => (
                 <label
-                  className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm ${
-                    creamId === ''
+                  key={extra.id}
+                  className={`${optionClass} cursor-pointer ${
+                    config.extraIds.includes(extra.id)
                       ? 'border-[#007F78] bg-[#E0F2EC]'
-                      : 'border-[#DCE7E2] bg-white'
+                      : 'bg-white'
                   }`}
                 >
                   <input
-                    type="radio"
-                    name="product-cream"
-                    value=""
-                    checked={creamId === ''}
-                    onChange={() => setCreamId('')}
+                    type="checkbox"
+                    checked={config.extraIds.includes(extra.id)}
+                    onChange={() => toggleExtra(extra.id)}
                     className="h-5 w-5 shrink-0 accent-[#007F78]"
                   />
-
-                  <span className="flex-1">Без сливок</span>
-                  <span className="text-[#62736E]">0 ₽</span>
+                  <span className="flex-1">{extra.name}</span>
+                  <span className="shrink-0">+{extra.price} ₽</span>
                 </label>
+              ))}
+            </div>
+          </fieldset>
 
-                {creamOptions.map((cream) => {
-                  const checked = creamId === cream.id
+          {creamOptions.length > 0 && (
+            <div className="mt-6">
+              <label htmlFor="product-cream" className="font-semibold">
+                Взбитые сливки
+              </label>
 
-                  return (
-                    <label
-                      key={cream.id}
-                      className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm ${
-                        checked
-                          ? 'border-[#007F78] bg-[#E0F2EC]'
-                          : 'border-[#DCE7E2] bg-white'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="product-cream"
-                        value={cream.id}
-                        checked={checked}
-                        onChange={() => setCreamId(cream.id)}
-                        className="h-5 w-5 shrink-0 accent-[#007F78]"
-                      />
-
-                      <span className="flex-1">{cream.name}</span>
-
-                      <span className="shrink-0 text-[#007F78]">
-                        +{cream.price} ₽
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-            </fieldset>
+              <select
+                id="product-cream"
+                value={selectedCreamId}
+                onChange={(event) => changeCream(event.target.value)}
+                className={selectClass}
+              >
+                <option value="">Без сливок</option>
+                {creamOptions.map((cream) => (
+                  <option key={cream.id} value={cream.id}>
+                    {cream.name} · +{cream.price} ₽
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </>
       )}
@@ -374,37 +297,33 @@ export default function ProductOptions({
         <h3 className="font-semibold">Твоя комбинация</h3>
 
         <p className="mt-2 text-sm leading-relaxed text-[#36534A]">
-          {summary}
+          {[product.name, details.variant.label, ...details.additions].join(
+            ' · ',
+          )}
         </p>
 
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between gap-3">
             <dt>{isClassic ? 'Основа' : 'Позиция меню'}</dt>
-            <dd className="shrink-0">{selectedVariant.price} ₽</dd>
+            <dd className="shrink-0">{details.variant.price} ₽</dd>
           </div>
 
-          {selectedMilk && (
+          {details.milk && (
             <div className="flex justify-between gap-3">
-              <dt>Молоко: {selectedMilk.name}</dt>
-              <dd className="shrink-0">+{milkPrice} ₽</dd>
+              <dt>Молоко: {details.milk.name}</dt>
+              <dd className="shrink-0">+{details.milk.price} ₽</dd>
             </div>
           )}
 
-          {selectedSyrups.map((syrup) => (
-            <div
-              key={syrup.id}
-              className="flex justify-between gap-3"
-            >
+          {details.selectedSyrups.map((syrup) => (
+            <div key={syrup.id} className="flex justify-between gap-3">
               <dt>Сироп: {syrup.name}</dt>
-              <dd className="shrink-0">+{syrupUnitPrice} ₽</dd>
+              <dd className="shrink-0">+{details.syrupPrice} ₽</dd>
             </div>
           ))}
 
-          {selectedExtras.map((extra) => (
-            <div
-              key={extra.id}
-              className="flex justify-between gap-3"
-            >
+          {details.extras.map((extra) => (
+            <div key={extra.id} className="flex justify-between gap-3">
               <dt>{extra.name}</dt>
               <dd className="shrink-0">+{extra.price} ₽</dd>
             </div>
@@ -414,12 +333,21 @@ export default function ProductOptions({
         <div
           aria-live="polite"
           aria-atomic="true"
-          className="mt-4 flex items-center justify-between gap-3 border-t border-[#BEDDD0] pt-4"
+          className="mt-4 flex items-center justify-between border-t border-[#BEDDD0] pt-4"
         >
           <span className="font-semibold">Итого</span>
-          <strong className="text-3xl">{totalPrice} ₽</strong>
+          <strong className="text-3xl">{details.total} ₽</strong>
         </div>
       </div>
+
+      <button
+        type="button"
+        disabled={isSaved}
+        onClick={() => onSave(config)}
+        className="mt-5 min-h-12 w-full cursor-pointer rounded-2xl bg-[#007F78] px-4 py-4 font-semibold text-white hover:bg-[#00665F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007F78] disabled:cursor-default disabled:bg-[#E0F2EC] disabled:text-[#36534A]"
+      >
+        {isSaved ? '✓ Уже в избранном' : '♡ Сохранить в избранное'}
+      </button>
     </div>
   )
 }

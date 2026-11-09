@@ -49,9 +49,7 @@ function fixedProduct(
 
 // Каталог прототипа собран по фотографиям меню и приложения.
 // Цены и наличие могут отличаться между кофейнями.
-// Где есть новая фотография с рублёвой ценой, используем её.
-// Для остальных позиций сохранены прежние демонстрационные цены.
-
+// Для позиций без новой рублёвой цены сохранены прежние демоцены.
 export const products: Product[] = [
   {
     id: 'cappuccino',
@@ -81,7 +79,6 @@ export const products: Product[] = [
     ],
   },
 
-  // Айс фраппе: вкусы и цена из предыдущих скриншотов приложения.
   ...[
     ['raspberry', 'Малина'],
     ['pistachio-matcha-raspberry', 'Фисташковая матча с малиной'],
@@ -103,7 +100,6 @@ export const products: Product[] = [
     ),
   ),
 
-  // Завтраки и блюда.
   fixedProduct('oatmeal', 'Каша овсяная', 'breakfast', 129),
   fixedProduct('rice-porridge', 'Каша рисовая', 'breakfast', 129),
   fixedProduct('syrniki', 'Сырники', 'breakfast', 199),
@@ -138,20 +134,9 @@ export const products: Product[] = [
     279,
   ),
   fixedProduct('vinaigrette', 'Винегрет', 'breakfast', 159),
-  fixedProduct(
-    'pelmeni',
-    'Пельмени ручной лепки',
-    'breakfast',
-    279,
-  ),
-  fixedProduct(
-    'vitamin-salad',
-    'Салат витаминный',
-    'breakfast',
-    139,
-  ),
+  fixedProduct('pelmeni', 'Пельмени ручной лепки', 'breakfast', 279),
+  fixedProduct('vitamin-salad', 'Салат витаминный', 'breakfast', 139),
 
-  // Для этих двух позиций цены видны на новой фотографии кассы.
   fixedProduct('bagel-chicken', 'Бейгл с курицей', 'sandwiches', 279),
   fixedProduct(
     'puff-ham',
@@ -160,7 +145,6 @@ export const products: Product[] = [
     239,
   ),
 
-  // Остальные сэндвичи: прежняя демонстрационная цена.
   ...[
     ['twister-chicken-ham', 'Твистер с ветчиной из курицы'],
     ['bagel-ham-tomato', 'Бейгл с ветчиной и вялеными томатами'],
@@ -175,7 +159,6 @@ export const products: Product[] = [
     ['sandwich-chicken', 'Сэндвич с курицей'],
   ].map(([id, name]) => fixedProduct(id, name, 'sandwiches', 299)),
 
-  // Десерты с ценами с кассы.
   fixedProduct('profiterole', 'Профитроль со сливками', 'desserts', 69),
   fixedProduct('potato-cake', 'Пирожное «Картошка»', 'desserts', 59),
   fixedProduct('cheesecake-classic', 'Чизкейк классический', 'desserts', 149),
@@ -226,7 +209,6 @@ export const products: Product[] = [
     139,
   ),
 
-  // Позиции из приложения, которых не видно на новых фотографиях.
   fixedProduct('donut', 'Пончик в ассортименте', 'desserts', 89),
   fixedProduct('strudel-apple', 'Штрудель с яблоком', 'desserts', 89),
   fixedProduct('strudel-cherry', 'Штрудель с вишней', 'desserts', 89),
@@ -235,9 +217,8 @@ export const products: Product[] = [
   fixedProduct('parfait', 'Парфе в ассортименте', 'desserts', 199),
 ]
 
-// Пока используется прежняя демонстрационная цена за один вкус.
-// Расчёт стоимости сиропа по объёму добавим вместе с обновлением
-// ProductOptions.tsx, чтобы данные и интерфейс менялись согласованно.
+// Актуальная стоимость сиропа по объёму рассчитывается в drinkConfig.ts.
+// Поле price оставлено для совместимости с прежними данными.
 export const syrups = [
   { id: 'mint', name: 'Мятный', price: 12 },
   { id: 'banana', name: 'Банановый', price: 12 },
@@ -251,11 +232,10 @@ export const syrups = [
   { id: 'bubble-gum', name: 'Бабл-гам', price: 12 },
 ]
 
-// Цены и ограничения из предыдущих скриншотов приложения.
 export const alternativeMilks = [
   { id: 'coconut', name: 'Кокосовое', price: 49 },
   { id: 'soy', name: 'Соевое', price: 49 },
-  { id: 'soy-banana', name: 'Соевое банановое', price: 49 },
+  { id: 'soy-banana', name: 'Банановое', price: 49 },
   { id: 'hazelnut', name: 'Фундучное', price: 49 },
   { id: 'oat', name: 'Овсяное', price: 49 },
   { id: 'lactose-free', name: 'Безлактозное', price: 49 },
@@ -270,11 +250,7 @@ export const drinkExtras = [
     name: 'Дополнительный шот эспрессо, 30 мл',
     price: 59,
   },
-  {
-    id: 'whipped-cream',
-    name: 'Взбитые сливки',
-    price: 69,
-  },
+  { id: 'whipped-cream', name: 'Взбитые сливки', price: 69 },
   {
     id: 'whipped-cream-chocolate',
     name: 'Взбитые сливки с шоколадным топпингом',
@@ -290,13 +266,9 @@ export const drinkExtras = [
     name: 'Взбитые сливки с малиновым топпингом',
     price: 69,
   },
-  // Цитрусы были на предыдущих скриншотах приложения.
   { id: 'citrus', name: 'Цитрусы', price: 59 },
   { id: 'marshmallow', name: 'Маршмеллоу', price: 59 },
 ]
-
-// У декафа и корицы на фото нет цены.
-// Пока не включаем их в платный конструктор.
 
 export const foodExtras = [
   { id: 'sour-cream', name: 'Сметана', price: 19 },
