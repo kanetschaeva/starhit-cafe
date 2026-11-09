@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { categories, products } from '../data/catalog'
 import type { CategoryId, Product } from '../data/catalog'
+import ProductOptions from './ProductOptions'
 
 const categorySymbols: Record<CategoryId, string> = {
   classic: '☕',
@@ -21,12 +22,6 @@ function ProductDetails({
   product: Product
   onBack: () => void
 }) {
-  const [variantId, setVariantId] = useState(product.variants[0].id)
-
-  const selectedVariant =
-    product.variants.find((variant) => variant.id === variantId) ??
-    product.variants[0]
-
   const category = categories.find(
     (item) => item.id === product.categoryId,
   )
@@ -36,7 +31,7 @@ function ProductDetails({
       <button
         type="button"
         onClick={onBack}
-        className="mb-4 min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#007F78] hover:bg-[#E0F2EC] focus-visible:outline-2"
+        className="mb-4 min-h-11 cursor-pointer rounded-xl px-3 text-sm font-semibold text-[#007F78] hover:bg-[#E0F2EC] focus-visible:outline-2 focus-visible:outline-[#007F78]"
       >
         ← Назад к меню
       </button>
@@ -64,48 +59,23 @@ function ProductDetails({
           {product.name}
         </h2>
 
-        <fieldset className="mt-6">
-          <legend className="mb-3 font-semibold">
-            {product.variants.length > 1 ? 'Выбери объём' : 'Порция'}
-          </legend>
-
-          <div className="flex flex-wrap gap-2">
-            {product.variants.map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                aria-pressed={variant.id === selectedVariant.id}
-                onClick={() => setVariantId(variant.id)}
-                className={`min-h-12 cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                  variant.id === selectedVariant.id
-                    ? 'border-[#007F78] bg-[#007F78] text-white'
-                    : 'border-[#DCE7E2] hover:bg-[#E0F2EC]'
-                }`}
-              >
-                {variant.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <div
-          aria-live="polite"
-          aria-atomic="true"
-          className="mt-6 flex items-center justify-between border-t border-[#E5ECE8] pt-5"
-        >
-          <span className="text-sm text-[#62736E]">Цена основы</span>
-          <strong className="text-3xl">{selectedVariant.price} ₽</strong>
-        </div>
+        <ProductOptions key={product.id} product={product} />
 
         <details className="mt-6 rounded-2xl bg-[#F4F8F5] p-4">
           <summary className="cursor-pointer font-semibold">
             Состав и аллергены
           </summary>
+
           <p className="mt-3 text-sm leading-relaxed text-[#62736E]">
             Информация пока уточняется. Если у тебя есть аллергия,
             проверь состав у бариста перед покупкой.
           </p>
         </details>
+
+        <p className="mt-5 text-xs leading-relaxed text-[#62736E]">
+          Демонстрационная карточка. Ассортимент, цены и доступные
+          сочетания могут отличаться в конкретной кофейне.
+        </p>
       </article>
     </section>
   )
@@ -125,7 +95,9 @@ export default function MenuCatalog() {
     const matchesCategory =
       categoryId === 'all' || product.categoryId === categoryId
 
-    return matchesCategory && normalize(product.name).includes(normalizedQuery)
+    const matchesQuery = normalize(product.name).includes(normalizedQuery)
+
+    return matchesCategory && matchesQuery
   })
 
   if (selectedProduct) {
@@ -158,7 +130,10 @@ export default function MenuCatalog() {
         id="catalog-search"
         type="search"
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => {
+          setReturnFocusId(null)
+          setQuery(event.target.value)
+        }}
         placeholder="Например, капучино или чизкейк"
         className="mt-2 min-h-12 w-full rounded-2xl border border-[#DCE7E2] bg-white px-4 outline-none focus:border-[#007F78] focus:ring-2 focus:ring-[#007F78]"
       />
@@ -178,7 +153,7 @@ export default function MenuCatalog() {
                 setReturnFocusId(null)
                 setCategoryId(category.id)
               }}
-              className={`min-h-11 shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${
+              className={`min-h-11 shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007F78] ${
                 categoryId === category.id
                   ? 'bg-[#007F78] text-white'
                   : 'bg-white hover:bg-[#E0F2EC]'
@@ -197,6 +172,7 @@ export default function MenuCatalog() {
       {filteredProducts.length === 0 ? (
         <div className="rounded-3xl bg-white p-6">
           <h3 className="font-bold">Ничего не нашли</h3>
+
           <p className="mt-2 text-sm text-[#62736E]">
             Попробуй другое название или выбери категорию «Всё».
           </p>
@@ -208,7 +184,7 @@ export default function MenuCatalog() {
               setCategoryId('all')
               setReturnFocusId(null)
             }}
-            className="mt-4 min-h-11 cursor-pointer rounded-xl bg-[#E0F2EC] px-4 font-semibold focus-visible:outline-2"
+            className="mt-4 min-h-11 cursor-pointer rounded-xl bg-[#E0F2EC] px-4 font-semibold focus-visible:outline-2 focus-visible:outline-[#007F78]"
           >
             Сбросить поиск
           </button>
